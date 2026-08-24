@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Wellbite | 따뜻한 선택으로 몸과 마음을 지켜요</title>
+    <meta name="description" content="아이의 식습관을 따뜻하게 안내하는 Wellbite - 사진을 올리면 음식이 미치는 신체·정서·학습 영향을 알려드려요." />
+    <meta property="og:title" content="Wellbite | 따뜻한 선택" />
+    <meta property="og:description" content="사진 한 장으로 아이의 식습관을 부드럽게 안내합니다. 가볍고 든든한 선택을 제안해보세요." />
+    <meta property="og:image" content="/social-preview.svg" />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Wellbite | 따뜻한 선택" />
+    <meta name="twitter:description" content="사진 한 장으로 아이의 식습관을 부드럽게 안내합니다." />
+    <meta name="twitter:image" content="/social-preview.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700;900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header id="drop-zone" class="top-pill">
+        <label id="select-photo-btn" class="pill-avatar" for="food-photo">
+          <span id="avatar-icon">📷</span>
+          <img id="avatar-thumb" class="avatar-thumb hidden" alt="" />
+        </label>
+        <input id="food-photo" type="file" accept="image/*" capture="environment" />
+        <p id="pill-hint" class="pill-hint">오늘 뭘 먹었나요? 눌러서 사진을 올려보세요</p>
+        <span class="pill-badge">Wellbite</span>
+      </header>
+
+      <section class="hero-quote">
+        <p class="eyebrow">오늘의 한 줄</p>
+        <h1>정크푸드보다, 몸과 마음을 지켜주는 선택이 더 오래 남습니다.</h1>
+      </section>
+
+      <nav class="mode-tabs">
+        <button class="tab active" data-mode="quick" type="button">빠른 가이드</button>
+        <button class="tab" data-mode="ai" type="button">AI 분석</button>
+        <button id="analyze-btn" class="analyze-btn" type="button">분석 시작</button>
+      </nav>
+
+      <p id="analysis-status" class="analysis-status">사진을 올리고 분석을 시작해보세요.</p>
+
+      <main id="tile-grid" class="tile-grid"></main>
+
+      <section id="kid-banner" class="kid-banner"></section>
+
+      <footer class="footer-note">
+        <strong>원장 메모</strong>
+        <p>배고픔은 시작이고, 식탁은 회복의 첫 문장입니다.</p>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>

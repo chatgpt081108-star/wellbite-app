@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"/c/Users/kct/Desktop/클코/과자앱\")",
+      "Bash(npm --version)"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "wellbite-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "dotenv": "^16.6.0",
+    "express": "^4.21.2"
+  }
+}
