@@ -1,45 +1,142 @@
+import { GoogleGenerativeAI } from '@google/generative-ai';
+
+// 키가 없거나 호출이 실패했을 때 보여줄 기본 안내문
+const FALLBACK = {
+  title: '사진 속 음식은 조금 더 살펴볼 필요가 있어요',
+  body: '음식의 종류와 양에 따라 몸의 반응이 달라질 수 있어요.',
+  emotion: '기분과 에너지의 흐름이 조금 흔들릴 수 있어요.',
+  study: '공부할 때 몸이 무겁거나 집중이 덜 될 수 있어요.',
+  parent: '아이의 컨디션과 기분을 같이 확인해보는 것이 좋아요.',
+  kid: '오늘은 몸이 편안한 선택을 해보자.',
+  tip: '사진 속 음식이 자극적이면 몸과 마음이 흔들릴 수 있어요. 가볍고 든든한 식사로 이어주세요.'
+};
+
+// Gemini가 안정적으로 읽는 이미지 형식만 허용
+const SUPPORTED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const SUPPORTED_EXT = ['jpg', 'jpeg', 'png', 'webp'];
+
+// 업로드한 이미지의 형식을 확인한다.
+function inspectFormat(imageDataUrl, fileName) {
+  const mimeMatch = String(imageDataUrl).match(/^data:([^;]+);base64,/);
+  const mime = mimeMatch ? mimeMatch[1].toLowerCase() : '';
+  const ext = (String(fileName || '').toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1] || '';
+
+  const isHeic =
+    mime.includes('heic') || mime.includes('heif') || ext === 'heic' || ext === 'heif';
+  const supported = SUPPORTED_MIME.includes(mime) || SUPPORTED_EXT.includes(ext);
+
+  return { isHeic, supported };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'method_not_allowed', message: 'POST로 요청해주세요.' });
     return;
   }
 
-  const { fileName, imageDataUrl, apiKey } = req.body || {};
+  const { fileName, imageDataUrl } = req.body || {};
+  const apiKey = process.env.GEMINI_API_KEY;
 
+  if (!imageDataUrl) {
+    res.status(400).json({ error: 'no_image', message: '사진 데이터가 없어요. 다시 올려주세요.' });
+    return;
+  }
+
+  // 지원하지 않는 형식(HEIC 등)이면 원인을 분명히 알려준다.
+  const { isHeic, supported } = inspectFormat(imageDataUrl, fileName);
+  if (isHeic) {
+    res.status(415).json({
+      error: 'unsupported_format',
+      message:
+        'HEIC(아이폰 기본) 형식은 분석할 수 없어요. 아이폰 [설정 > 카메라 > 포맷 > 호환성 우선]으로 바꾸거나, JPG·PNG로 변환해서 올려주세요.'
+    });
+    return;
+  }
+  if (!supported) {
+    res.status(415).json({
+      error: 'unsupported_format',
+      message: '지원하지 않는 이미지 형식이에요. JPG, PNG, WEBP 파일로 올려주세요.'
+    });
+    return;
+  }
+
+  // 키가 없으면 기본 안내문으로 넘어가되, 원인을 함께 전달한다.
   if (!apiKey) {
-    res.status(400).json({ error: 'API key is required' });
+    res.status(200).json({
+      ...FALLBACK,
+      notice: '서버에 AI 키(GEMINI_API_KEY)가 설정되지 않아 기본 가이드로 안내했어요.'
+    });
     return;
   }
 
-  const lowerName = String(fileName || '').toLowerCase();
-  const isJunk = /(떡볶이|라면|과자|초콜릿|탄산|패스트푸드|햄버거|치킨|도넛|핫도그|컵라면|스낵|음료)/i.test(lowerName);
-  const isBalanced = /(밥|현미|계란|두부|야채|고기|우유|과일|김밥|샌드위치|죽)/i.test(lowerName);
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
 
-  let title = '사진 속 음식은 조금 더 살펴볼 필요가 있어요';
-  let body = '음식의 종류와 양에 따라 몸의 반응이 달라질 수 있어요.';
-  let emotion = '기분과 에너지의 흐름이 조금 흔들릴 수 있어요.';
-  let study = '공부할 때 몸이 무겁거나 집중이 덜 될 수 있어요.';
-  let parent = '아이의 컨디션과 기분을 같이 확인해보는 것이 좋아요.';
-  let kid = '오늘은 몸이 편안한 선택을 해보자.';
-  let tip = '사진 속 음식이 자극적이면 몸과 마음이 흔들릴 수 있어요. 가볍고 든든한 식사로 이어주세요.';
+    const prompt = `
+당신은 아이의 식습관과 웰빙을 돕는 따뜻한 한국어 안내 전문가입니다.
+사용자가 업로드한 음식 사진을 보고, 아래 형식으로 한국어로 응답해주세요.
 
-  if (isJunk) {
-    title = '정크푸드로 보이는 음식입니다';
-    body = '혈당이 급격히 오르내릴 수 있어 몸이 들뜨고, 피로가 쉽게 쌓일 수 있어요.';
-    emotion = '짜고 달고 자극적인 음식은 기분을 들뜨게 만들다가도 금세 불안하거나 짜증 나게 만들 수 있어요.';
-    study = '집중력이 흐트러지고, 머리가 맑지 않게 느껴질 수 있어요.';
-    parent = '아이가 잠깐 만족해도, 장기적으로는 컨디션과 정서에 부담을 줄 수 있어요.';
-    kid = '오늘은 잠깐의 맛보다, 몸이 편안해지는 선택이 더 좋아요.';
-    tip = '짧은 만족보다 긴 안정을 위해 가볍고 든든한 대안을 추천해 주세요.';
-  } else if (isBalanced) {
-    title = '몸과 마음에 비교적 안정적인 음식입니다';
-    body = '탄수화물과 단백질이 균형 있게 들어와서 몸이 덜 흔들리고 에너지가 오래 가요.';
-    emotion = '평온한 상태를 유지하기 쉬워서 기분이 안정적으로 유지돼요.';
-    study = '집중력과 기억력이 더 오래 이어질 가능성이 높아요.';
-    parent = '아이의 몸과 기분을 함께 챙기는 선택으로 좋습니다.';
-    kid = '배가 든든하면 머리도 맑아져요.';
-    tip = '이런 음식은 공부와 정서 안정에 도움이 되는 편입니다.';
+- title: 사진의 의미를 한 문장으로
+- body: 신체적 영향 1문장
+- emotion: 정서적 영향 1문장
+- study: 집중/공부 영향 1문장
+- parent: 부모에게 전할 따뜻한 한마디
+- kid: 아이에게 전할 따뜻한 한마디
+- tip: 부모가 실천할 수 있는 조언 1문장
+
+응답은 JSON 형식으로만 해주세요.
+예시:
+{"title":"...","body":"...","emotion":"...","study":"...","parent":"...","kid":"...","tip":"..."}
+`;
+
+    const mimeMatch = imageDataUrl.match(/^data:(.+);base64,/);
+    const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const base64Data = imageDataUrl.replace(/^data:.+;base64,/, '');
+
+    const imagePart = {
+      inlineData: {
+        mimeType,
+        data: base64Data
+      }
+    };
+
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const result = await model.generateContent([prompt, imagePart]);
+    const responseText = result.response.text();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(responseText);
+    } catch {
+      const fallback = responseText.match(/\{[\s\S]*\}/);
+      parsed = fallback ? JSON.parse(fallback[0]) : null;
+    }
+
+    if (!parsed || typeof parsed !== 'object') {
+      res.status(200).json({
+        ...FALLBACK,
+        notice: 'AI 응답을 이해하지 못해 기본 가이드로 안내했어요. 잠시 후 다시 시도해주세요.'
+      });
+      return;
+    }
+
+    const safeResult = {
+      title: parsed.title || `${fileName || '사진'}의 의미를 살펴보겠습니다.`,
+      body: parsed.body || FALLBACK.body,
+      emotion: parsed.emotion || FALLBACK.emotion,
+      study: parsed.study || FALLBACK.study,
+      parent: parsed.parent || FALLBACK.parent,
+      kid: parsed.kid || FALLBACK.kid,
+      tip: parsed.tip || FALLBACK.tip
+    };
+
+    res.status(200).json(safeResult);
+  } catch (error) {
+    console.error(error);
+    // 호출 실패 시 기본 안내문으로 넘어가되, 원인을 함께 전달한다.
+    res.status(200).json({
+      ...FALLBACK,
+      notice: 'AI 분석이 잠시 어려워 기본 가이드로 안내했어요. 잠시 후 다시 시도해주세요.'
+    });
   }
-
-  res.status(200).json({ title, body, emotion, study, parent, kid, tip });
 }
