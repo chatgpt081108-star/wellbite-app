@@ -58,7 +58,7 @@ app.post('/api/analyze', async (req, res) => {
       }
     };
 
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' });
+    const model = genAI.getGenerativeModel({ model: 'gemini-3.6-flash' });
     const result = await model.generateContent([prompt, imagePart]);
     const responseText = result.response.text();
 
