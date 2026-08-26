@@ -1,7 +1,0 @@
-# 로컬 개발 전용 Express 서버 — Vercel에서는 api/ 서버리스 함수로 동작하므로 제외
-# (배포에 포함되면 Vercel이 Express 앱으로 실행해 정적 파일까지 가로챔)
-server.js
-
-# 개발용 스크립트 / 로컬 설정
-tools/
-.claude/

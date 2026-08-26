@@ -208,40 +208,24 @@ async function runAnalysis() {
         body: JSON.stringify({ fileName, imageDataUrl })
       });
 
-      // 서버 함수가 미배포면 JSON 대신 HTML이 올 수 있으므로 안전하게 파싱한다.
-      let data = null;
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
-
-      if (response.ok && data && data.title) {
-        renderAnalysisResult(data);
-        // notice가 있으면(키 없음/AI 실패 등) 그 원인을 그대로 보여준다.
-        analysisStatus.textContent = data.notice || 'AI 분석 결과를 확인했습니다.';
+      if (response.ok) {
+        const result = await response.json();
+        renderAnalysisResult(result);
+        analysisStatus.textContent = 'AI 분석 결과를 확인했습니다.';
+        analyzeBtn.disabled = false;
         return;
       }
-
-      // 지원하지 않는 형식(HEIC 등) 같은 명확한 오류는 그대로 안내하고 멈춘다.
-      if (data && data.message) {
-        analysisStatus.textContent = data.message;
-        return;
-      }
-
-      // 그 외(함수 미배포로 HTML 응답 등)에는 원인을 솔직히 알린다.
-      analysisStatus.textContent =
-        'AI 분석 서버에 연결하지 못했어요. 잠시 후 다시 시도하거나 관리자에게 문의해주세요.';
-      return;
     }
 
-    // 빠른 가이드 모드
     const fallback = analyzeFood(fileName);
     renderAnalysisResult(fallback);
-    analysisStatus.textContent = '빠른 가이드를 확인했습니다.';
+    analysisStatus.textContent = currentMode === 'ai'
+      ? 'AI 키가 없어 빠른 가이드로 분석했습니다. API 키를 넣으면 AI 분석을 연결할 수 있습니다.'
+      : '빠른 가이드를 확인했습니다.';
   } catch (error) {
-    analysisStatus.textContent =
-      '분석 중 문제가 생겼어요. 네트워크 상태를 확인하고 다시 시도해주세요.';
+    const fallback = analyzeFood(selectedFile.name);
+    renderAnalysisResult(fallback);
+    analysisStatus.textContent = '분석 중 오류가 있었지만, 빠른 가이드로 결과를 보여드렸습니다.';
   } finally {
     analyzeBtn.disabled = false;
   }
