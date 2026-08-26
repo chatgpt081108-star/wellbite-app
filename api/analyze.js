@@ -11,23 +11,61 @@ const FALLBACK = {
   tip: '사진 속 음식이 자극적이면 몸과 마음이 흔들릴 수 있어요. 가볍고 든든한 식사로 이어주세요.'
 };
 
+// Gemini가 안정적으로 읽는 이미지 형식만 허용
+const SUPPORTED_MIME = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const SUPPORTED_EXT = ['jpg', 'jpeg', 'png', 'webp'];
+
+// 업로드한 이미지의 형식을 확인한다.
+function inspectFormat(imageDataUrl, fileName) {
+  const mimeMatch = String(imageDataUrl).match(/^data:([^;]+);base64,/);
+  const mime = mimeMatch ? mimeMatch[1].toLowerCase() : '';
+  const ext = (String(fileName || '').toLowerCase().match(/\.([a-z0-9]+)$/) || [])[1] || '';
+
+  const isHeic =
+    mime.includes('heic') || mime.includes('heif') || ext === 'heic' || ext === 'heif';
+  const supported = SUPPORTED_MIME.includes(mime) || SUPPORTED_EXT.includes(ext);
+
+  return { isHeic, supported };
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
+    res.status(405).json({ error: 'method_not_allowed', message: 'POST로 요청해주세요.' });
     return;
   }
 
   const { fileName, imageDataUrl } = req.body || {};
   const apiKey = process.env.GEMINI_API_KEY;
 
-  // 키가 없으면 기본 안내문으로 넘어감
-  if (!apiKey) {
-    res.status(200).json(FALLBACK);
+  if (!imageDataUrl) {
+    res.status(400).json({ error: 'no_image', message: '사진 데이터가 없어요. 다시 올려주세요.' });
     return;
   }
 
-  if (!imageDataUrl) {
-    res.status(400).json({ error: 'No image data provided.' });
+  // 지원하지 않는 형식(HEIC 등)이면 원인을 분명히 알려준다.
+  const { isHeic, supported } = inspectFormat(imageDataUrl, fileName);
+  if (isHeic) {
+    res.status(415).json({
+      error: 'unsupported_format',
+      message:
+        'HEIC(아이폰 기본) 형식은 분석할 수 없어요. 아이폰 [설정 > 카메라 > 포맷 > 호환성 우선]으로 바꾸거나, JPG·PNG로 변환해서 올려주세요.'
+    });
+    return;
+  }
+  if (!supported) {
+    res.status(415).json({
+      error: 'unsupported_format',
+      message: '지원하지 않는 이미지 형식이에요. JPG, PNG, WEBP 파일로 올려주세요.'
+    });
+    return;
+  }
+
+  // 키가 없으면 기본 안내문으로 넘어가되, 원인을 함께 전달한다.
+  if (!apiKey) {
+    res.status(200).json({
+      ...FALLBACK,
+      notice: '서버에 AI 키(GEMINI_API_KEY)가 설정되지 않아 기본 가이드로 안내했어요.'
+    });
     return;
   }
 
@@ -75,7 +113,10 @@ export default async function handler(req, res) {
     }
 
     if (!parsed || typeof parsed !== 'object') {
-      res.status(200).json(FALLBACK);
+      res.status(200).json({
+        ...FALLBACK,
+        notice: 'AI 응답을 이해하지 못해 기본 가이드로 안내했어요. 잠시 후 다시 시도해주세요.'
+      });
       return;
     }
 
@@ -92,7 +133,10 @@ export default async function handler(req, res) {
     res.status(200).json(safeResult);
   } catch (error) {
     console.error(error);
-    // 호출 실패 시 기본 안내문으로 넘어감
-    res.status(200).json(FALLBACK);
+    // 호출 실패 시 기본 안내문으로 넘어가되, 원인을 함께 전달한다.
+    res.status(200).json({
+      ...FALLBACK,
+      notice: 'AI 분석이 잠시 어려워 기본 가이드로 안내했어요. 잠시 후 다시 시도해주세요.'
+    });
   }
 }
